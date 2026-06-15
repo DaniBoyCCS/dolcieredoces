@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Dolciere Doces V2</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;700&family=Raleway:wght@300;400;500&display=swap');
+:root{
+--bg:#F5EDE3;--primary:#C4956A;--text:#5C3D2E;--white:#fff;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:Raleway,sans-serif;color:var(--text)}
+.container{max-width:1000px;margin:auto;padding:20px}
+.hero{text-align:center;padding:70px 20px}
+h1,h2,h3{font-family:"Cormorant Garamond",serif}
+h1{font-size:4rem;color:var(--primary);margin:0}
+.btn{background:var(--primary);color:#fff;border:none;padding:12px 22px;border-radius:30px;cursor:pointer}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:15px}
+.card{background:#fff;padding:15px;border-radius:16px;box-shadow:0 4px 12px rgba(0,0,0,.08)}
+.badge{background:#f0dfcf;padding:4px 8px;border-radius:20px;font-size:.8rem}
+.hidden{display:none}
+.bar{position:fixed;bottom:0;left:0;right:0;background:#fff;padding:12px;border-top:1px solid #ddd;display:flex;justify-content:space-between}
+input,select,textarea{width:100%;padding:10px;margin:6px 0 12px;border-radius:10px;border:1px solid #ddd}
+.qty{display:flex;gap:10px;align-items:center}
+.notice{background:#fff8df;padding:12px;border-radius:12px;margin:15px 0}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+<section id="home">
+<div class="hero">
+<h1>Dolciere</h1>
+<p>Elegância em cada detalhe, do açúcar ao encanto ✨</p>
+<button class="btn" onclick="start()">Iniciar Pedido</button>
+</div>
+</section>
+
+<section id="app" class="hidden">
+
+<div id="cliente">
+<h2>Seus dados</h2>
+<input id="nome" placeholder="Nome">
+<input id="fone" placeholder="Telefone">
+<input id="cidade" placeholder="Cidade">
+<button class="btn" onclick="abrirMenu()">Continuar</button>
+</div>
+
+<div id="menu" class="hidden">
+<h2>Cardápio</h2>
+
+<div class="notice">
+⚠️ Pedidos com mais de 10 unidades do mesmo produto exigem agendamento prévio.
+</div>
+
+<div class="grid" id="lista"></div>
+
+<div class="bar">
+<div>Total: <strong id="total">R$ 0,00</strong></div>
+<button class="btn" onclick="abrirPagamento()">Finalizar</button>
+</div>
+</div>
+
+<div id="pagamento" class="hidden">
+<h2>Pagamento</h2>
+<select id="pag">
+<option>Pix</option>
+<option>Dinheiro</option>
+<option>Cartão</option>
+</select>
+
+<select id="tipoEntrega">
+<option>Retirada</option>
+<option>Entrega</option>
+</select>
+
+<textarea id="obs" placeholder="Observações"></textarea>
+<button class="btn" onclick="revisar()">Revisar</button>
+</div>
+
+<div id="revisao" class="hidden">
+<h2>Resumo</h2>
+<div id="resumo"></div>
+<br>
+<button class="btn" onclick="enviar()">Enviar WhatsApp</button>
+</div>
+
+</section>
+
+<hr>
+<p style="text-align:center;font-size:12px;cursor:pointer" onclick="adminLogin()">Área Administrativa</p>
+
+</div>
+
+<script>
+const WHATSAPP="5543998277497";
+
+const ADMINS=[
+{usuario:"Danilo",senha:"159753"},
+{usuario:"Raiany",senha:"159753"}
+];
+
+let PRODUTOS=JSON.parse(localStorage.getItem("dolciere_produtos"))||[
+{id:1,nome:"Cones Trufados",preco:8,descricao:"Cone crocante recheado.",sabores:["Chocolate Belga","Morango"],ativo:true},
+{id:2,nome:"Brownie",preco:12,descricao:"Brownie macio, saboroso e recheado.",sabores:["Chocolate","Nutella"],ativo:true},
+{id:3,nome:"Bombom com Casca de Chocolate",preco:10,descricao:"Bombom artesanal recheado.",sabores:["Ao Leite","Branco"],ativo:true},
+{id:4,nome:"Copo da Felicidade",preco:15,descricao:"Massa mais sequinha.",sabores:["Tradicional"],ativo:true},
+{id:5,nome:"Bolo no Pote",preco:13,descricao:"Massa mais molhadinha.",sabores:["Chocolate"],ativo:true},
+{id:6,nome:"Pote Recheado",preco:15,descricao:"Apenas recheio.",sabores:["Brigadeiro"],ativo:true}
+];
+
+const carrinho=[];
+
+function start(){
+home.classList.add('hidden');
+app.classList.remove('hidden');
+}
+
+function abrirMenu(){
+if(!nome.value||!fone.value||!cidade.value) return alert("Preencha todos os campos");
+cliente.classList.add("hidden");
+menu.classList.remove("hidden");
+}
+
+function render(){
+lista.innerHTML='';
+PRODUTOS.filter(p=>p.ativo).forEach(p=>{
+lista.innerHTML+=`
+<div class="card">
+<span class="badge">Disponível</span>
+<h3>${p.nome}</h3>
+<p>${p.descricao}</p>
+<p><strong>R$ ${p.preco.toFixed(2)}</strong></p>
+<select id="s${p.id}">${p.sabores.map(s=>`<option>${s}</option>`).join('')}</select>
+<div class="qty">
+<button onclick="add(${p.id})">Adicionar</button>
+</div>
+</div>`
+})
+}
+
+function add(id){
+let p=PRODUTOS.find(x=>x.id==id);
+let sabor=document.getElementById('s'+id).value;
+carrinho.push({...p,sabor});
+atualizaTotal();
+}
+
+function atualizaTotal(){
+let totalV=carrinho.reduce((a,b)=>a+b.preco,0);
+total.innerText='R$ '+totalV.toFixed(2);
+}
+
+function abrirPagamento(){
+if(!carrinho.length) return alert("Adicione produtos");
+menu.classList.add("hidden");
+pagamento.classList.remove("hidden");
+}
+
+function revisar(){
+pagamento.classList.add("hidden");
+revisao.classList.remove("hidden");
+
+let html="";
+let total=0;
+let contagem={};
+
+carrinho.forEach(i=>{
+total+=i.preco;
+contagem[i.nome]=(contagem[i.nome]||0)+1;
+html+=`${i.nome} (${i.sabor}) - R$ ${i.preco.toFixed(2)}<br>`;
+});
+
+for(let produto in contagem){
+ if(contagem[produto]>10){
+ html+=`<p style='color:red'><b>⚠ ${produto} possui mais de 10 unidades e requer agendamento prévio.</b></p>`;
+ }
+}
+
+html+=`<hr><b>Total: R$ ${total.toFixed(2)}</b>`;
+resumo.innerHTML=html;
+}
+
+function enviar(){
+let total=carrinho.reduce((a,b)=>a+b.preco,0);
+let itens='';
+let contagem={};
+
+carrinho.forEach(i=>{
+itens+=`• ${i.nome} (${i.sabor})%0A`;
+contagem[i.nome]=(contagem[i.nome]||0)+1;
+});
+
+let alerta='';
+for(let p in contagem){
+if(contagem[p]>10){
+alerta+=`%0A⚠ ENCOMENDA: ${p} acima de 10 unidades.`;
+}
+}
+
+let msg=`🍫 NOVO PEDIDO DOLCIERE 🍫%0A%0ACliente: ${nome.value}%0ATelefone: ${fone.value}%0ACidade: ${cidade.value}%0A%0A${itens}%0ATotal: R$ ${total.toFixed(2)}%0APagamento: ${pag.value}%0ATipo: ${tipoEntrega.value}%0A%0AObs: ${obs.value}${alerta}`;
+
+window.open(`https://wa.me/${WHATSAPP}?text=${msg}`);
+}
+
+function adminLogin(){
+let u=prompt("Usuário");
+let s=prompt("Senha");
+
+let ok=ADMINS.find(a=>a.usuario===u && a.senha===s);
+if(!ok) return alert("Acesso negado");
+
+let novo=prompt("Editar preço de qual produto? Digite o nome exato.");
+let prod=PRODUTOS.find(p=>p.nome===novo);
+
+if(prod){
+let valor=prompt("Novo preço",prod.preco);
+prod.preco=parseFloat(valor);
+localStorage.setItem("dolciere_produtos",JSON.stringify(PRODUTOS));
+alert("Salvo!");
+}
+}
+render();
+</script>
+</body>
+</html>
